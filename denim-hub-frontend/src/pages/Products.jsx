@@ -115,7 +115,16 @@ function Products() {
       <Sidebar />
 
       <div className="flex-grow-1 p-4 overflow-auto">
-        <h3 className="mb-4">Products</h3>
+        <div className="d-flex justify-content-between align-items-center mb-4">
+          <h3 className="mb-0">Products</h3>
+          <button
+            className="btn btn-primary"
+            onClick={() => navigate("/products/add")}
+          >
+            + Add Product
+          </button>
+        </div>
+
         <div className="d-flex gap-3 mb-3">
           <div className="input-group">
             <span className="input-group-text">

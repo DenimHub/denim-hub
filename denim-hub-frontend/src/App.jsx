@@ -11,6 +11,8 @@ import Customers from "./pages/Customers";
 import Inventory from "./pages/Inventory";
 import SalesReport from "./pages/SalesReport";
 import BillsReport from "./pages/BillsReport";
+import ReportsAnalytics from "./pages/ReportsAnalytics";
+import AddProduct from "./pages/AddProduct";
 
 function App() {
   return (
@@ -21,12 +23,15 @@ function App() {
         <Route path="/changePassword" element={<ChangePassword />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/products" element={<Products />} />
+        <Route path="//products/add" element={<AddProduct />} />
         <Route path="/products/view/:id" element={<ProductView />} />
         <Route path="/billing" element={<Billing />} />
         <Route path="/customers" element={<Customers />} />
         <Route path="/inventory" element={<Inventory />} />
         <Route path="/salesReport" element={<SalesReport />} />
         <Route path="/billsReport" element={<BillsReport />} />
+        <Route path="/reportsAnalytics" element={<ReportsAnalytics />} />
+
       </Routes>
     </BrowserRouter>
   );

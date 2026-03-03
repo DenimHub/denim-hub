@@ -9,7 +9,9 @@ import {
   FaSignOutAlt,
   FaUsers,
 } from "react-icons/fa";
+
 import { FaChartSimple } from "react-icons/fa6";
+import { IoAnalytics } from "react-icons/io5";
 
 function Sidebar() {
   return (
@@ -69,6 +71,13 @@ function Sidebar() {
           <NavLink className="nav-link text-white" to="/billsReport">
             <FaChartSimple className="me-2" />
             Bills Reports
+          </NavLink>
+        </li>
+
+        <li className="nav-item">
+          <NavLink className="nav-link text-white" to="/reportsAnalytics">
+            <IoAnalytics className="me-2" />
+            Reports Analytics
           </NavLink>
         </li>
       </ul>
