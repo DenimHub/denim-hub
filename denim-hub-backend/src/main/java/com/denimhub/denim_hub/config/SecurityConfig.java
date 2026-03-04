@@ -1,4 +1,5 @@
 package com.denimhub.denim_hub.config;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
@@ -19,14 +20,14 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-    // CORS configuration for Spring Security
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:5177")); // <-- frontend port
-        configuration.setAllowedMethods(List.of("GET","POST","PUT","DELETE","OPTIONS"));
+        configuration.setAllowedOriginPatterns(List.of("http://localhost:*"));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
+        configuration.setExposedHeaders(List.of("Content-Disposition"));
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
@@ -37,9 +38,24 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
-                .cors(Customizer.withDefaults()) // <-- important
+                .cors(Customizer.withDefaults())
                 .authorizeHttpRequests(auth -> auth
+                        // Allow authentication endpoints
                         .requestMatchers("/api/auth/**").permitAll()
+                        // Allow product API endpoints
+                        .requestMatchers("/api/products/**").permitAll()
+                        // Allow inventory API endpoints
+                        .requestMatchers("/api/inventory/**").permitAll()
+                        // Allow sales/billing endpoints
+                        .requestMatchers("/api/sales/**").permitAll()
+                        .requestMatchers("/api/sales").permitAll()
+                        // Allow bills report endpoints
+                        .requestMatchers("/api/bills/**").permitAll()
+                        // Allow customers endpoints - ADD THIS
+                        .requestMatchers("/api/customers/**").permitAll()
+                        // Allow access to uploads folder
+                        .requestMatchers("/uploads/**").permitAll()
+                        // All other requests need authentication
                         .anyRequest().authenticated()
                 );
 

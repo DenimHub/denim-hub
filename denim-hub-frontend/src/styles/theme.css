@@ -54,3 +54,59 @@ body {
 .theme-bg-navy-light {
   scroll-behavior: smooth;
 }
+/* For the export dropdown */
+.hover-bg-light:hover {
+  background-color: #f8f9fa !important;
+  cursor: pointer;
+}
+
+/* Animation for the export button */
+.btn-success {
+  transition: all 0.3s ease;
+}
+
+.btn-success:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+/* Export menu animation */
+.position-absolute {
+  animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media print {
+  /* Hide sidebar when printing */
+  .d-flex > :first-child:not(.flex-grow-1) {
+    display: none !important;
+  }
+  
+  /* Adjust main content to take full width */
+  .flex-grow-1 {
+    width: 100% !important;
+    margin-left: 0 !important;
+    padding: 20px !important;
+  }
+  
+  /* Hide buttons and actions when printing */
+  .btn, .btn-close, .modal-footer, .modal-header .btn-close {
+    display: none !important;
+  }
+  
+  /* Ensure bill card looks good */
+  #bill-print, .modal-content {
+    box-shadow: none !important;
+    border: 1px solid #ddd !important;
+  }
+}

@@ -9,7 +9,10 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
+        // Serve files from the uploads directory
         registry.addResourceHandler("/uploads/**")
-                .addResourceLocations("file:uploads/");
+                .addResourceLocations("file:" + System.getProperty("user.dir") + "/uploads/")
+                .setCachePeriod(3600)
+                .resourceChain(true);
     }
 }

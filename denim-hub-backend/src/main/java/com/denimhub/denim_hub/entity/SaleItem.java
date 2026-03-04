@@ -1,9 +1,9 @@
 package com.denimhub.denim_hub.entity;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
-
 import java.math.BigDecimal;
 
 @Entity
@@ -18,13 +18,11 @@ public class SaleItem {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Many items belong to one bill
     @ManyToOne
     @JoinColumn(name = "sale_id", nullable = false)
     @JsonBackReference
     private Sale sale;
 
-    // Which product was sold
     @ManyToOne
     @JoinColumn(name = "product_id", nullable = false)
     private Product product;
@@ -32,9 +30,9 @@ public class SaleItem {
     @Column(nullable = false)
     private Integer quantity;
 
-    @Column(nullable = false)
+    @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal price;
 
-    @Column(nullable = false)
+    @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal total;
 }

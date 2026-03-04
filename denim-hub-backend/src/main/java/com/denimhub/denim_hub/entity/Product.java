@@ -2,7 +2,6 @@ package com.denimhub.denim_hub.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
@@ -19,13 +18,12 @@ public class Product {
     private Long id;
 
     @Column(nullable = false)
-    private String name;   // Denim Shirt, Jeans etc.
-
-    @Column(name = "category",nullable = false)
-    private String category;   // Shirt / Pant
+    private String name;
 
     @Column(nullable = false)
-    private String size;   // S, M, L, XL
+    private String category;
+
+    private String size;
 
     @Column(nullable = false)
     private BigDecimal price;
@@ -33,15 +31,47 @@ public class Product {
     @Column(name = "stock_qty", nullable = false)
     private Integer stockQty;
 
+    @Column(name = "min_stock")
+    private Integer minStock = 10; // Default value
+
+    @Column(columnDefinition = "TEXT")
+    private String description;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
     @Column(name = "image_url")
     private String imageUrl;
 
+    @Column(name = "is_active")
+    private Boolean isActive = true;
 
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
+        if (this.isActive == null) {
+            this.isActive = true;
+        }
+        if (this.minStock == null) {
+            this.minStock = 10;
+        }
+        if (this.stockQty == null) {
+            this.stockQty = 0;
+        }
+    }
+
+    // Helper method to safely get minStock
+    public Integer getMinStock() {
+        return minStock != null ? minStock : 10;
+    }
+
+    // Helper method to safely get stockQty
+    public Integer getStockQty() {
+        return stockQty != null ? stockQty : 0;
+    }
+
+    // Helper method to safely get isActive
+    public Boolean getIsActive() {
+        return isActive != null ? isActive : true;
     }
 }
