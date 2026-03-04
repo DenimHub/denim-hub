@@ -28,7 +28,7 @@ function Login() {
         localStorage.setItem("role", response.data.role);
         localStorage.setItem("username", username);
 
-        alert("Welcome " + response.data.role);
+        // alert("Welcome " + response.data.role);
 
         // Redirect to dashboard
         navigate("/dashboard");
