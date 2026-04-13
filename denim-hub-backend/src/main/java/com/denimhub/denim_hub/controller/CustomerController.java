@@ -1,12 +1,16 @@
 package com.denimhub.denim_hub.controller;
 
 import com.denimhub.denim_hub.entity.Customer;
+import com.denimhub.denim_hub.entity.Sale;
 import com.denimhub.denim_hub.repository.CustomerRepository;
+import com.denimhub.denim_hub.repository.SaleRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/customers")
@@ -15,104 +19,61 @@ import java.util.List;
 public class CustomerController {
 
     private final CustomerRepository customerRepository;
+    private final SaleRepository saleRepository;
 
-    // Get all customers
     @GetMapping
     public ResponseEntity<List<Customer>> getAllCustomers() {
-        try {
-            List<Customer> customers = customerRepository.findAllByOrderByCreatedAtDesc();
-            return ResponseEntity.ok(customers);
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.internalServerError().build();
-        }
+        return ResponseEntity.ok(customerRepository.findAllByOrderByCreatedAtDesc());
     }
 
-    // Get customer by ID
     @GetMapping("/{id}")
     public ResponseEntity<Customer> getCustomer(@PathVariable Long id) {
-        try {
-            Customer customer = customerRepository.findById(id)
-                    .orElseThrow(() -> new RuntimeException("Customer not found with id: " + id));
-            return ResponseEntity.ok(customer);
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.notFound().build();
-        }
+        return ResponseEntity.ok(customerRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Customer not found with id: " + id)));
     }
 
-    // Get customer by mobile
-    @GetMapping("/mobile/{mobile}")
-    public ResponseEntity<Customer> getCustomerByMobile(@PathVariable String mobile) {
-        try {
-            Customer customer = customerRepository.findByMobile(mobile)
-                    .orElseThrow(() -> new RuntimeException("Customer not found with mobile: " + mobile));
-            return ResponseEntity.ok(customer);
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.notFound().build();
-        }
+    @GetMapping("/search")
+    public ResponseEntity<List<Customer>> searchCustomers(@RequestParam String mobile) {
+        return ResponseEntity.ok(customerRepository.findByMobileContaining(mobile));
     }
 
-    // Update customer
+    @GetMapping("/{id}/orders")
+    public ResponseEntity<List<Sale>> getCustomerOrders(@PathVariable Long id) {
+        // Use the correct method name
+        List<Sale> orders = saleRepository.findByCustomerIdOrderByBillDateDesc(id);
+        return ResponseEntity.ok(orders);
+    }
+
     @PutMapping("/{id}")
     public ResponseEntity<Customer> updateCustomer(@PathVariable Long id, @RequestBody Customer customer) {
-        try {
-            Customer existing = customerRepository.findById(id)
-                    .orElseThrow(() -> new RuntimeException("Customer not found with id: " + id));
-
-            existing.setName(customer.getName());
-            existing.setEmail(customer.getEmail());
-            existing.setMobile(customer.getMobile());
-
-            Customer updated = customerRepository.save(existing);
-            return ResponseEntity.ok(updated);
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.internalServerError().build();
-        }
+        Customer existing = customerRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Customer not found with id: " + id));
+        existing.setName(customer.getName());
+        existing.setEmail(customer.getEmail());
+        existing.setMobile(customer.getMobile());
+        return ResponseEntity.ok(customerRepository.save(existing));
     }
 
-    // Delete customer
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteCustomer(@PathVariable Long id) {
-        try {
-            if (!customerRepository.existsById(id)) {
-                return ResponseEntity.notFound().build();
-            }
-            customerRepository.deleteById(id);
-            return ResponseEntity.ok().body("Customer deleted successfully");
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.internalServerError().body("Failed to delete customer: " + e.getMessage());
+        if (!customerRepository.existsById(id)) {
+            return ResponseEntity.notFound().build();
         }
+        customerRepository.deleteById(id);
+        return ResponseEntity.ok().body(Map.of("message", "Customer deleted successfully"));
     }
 
-    // Get customer statistics
     @GetMapping("/stats")
-    public ResponseEntity<?> getCustomerStats() {
-        try {
-            long totalCustomers = customerRepository.count();
-            double totalSpent = customerRepository.getTotalCustomerSpending();
-            Customer topCustomer = customerRepository.findTopByOrderByTotalSpentDesc();
+    public ResponseEntity<Map<String, Object>> getCustomerStats() {
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("totalCustomers", customerRepository.count());
+        stats.put("totalSpent", customerRepository.getTotalCustomerSpending());
 
-            return ResponseEntity.ok(new CustomerStats(totalCustomers, totalSpent, topCustomer));
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.internalServerError().build();
+        List<Customer> topCustomers = customerRepository.findTop10ByOrderByTotalSpentDesc();
+        if (!topCustomers.isEmpty()) {
+            stats.put("topCustomer", topCustomers.get(0));
         }
-    }
 
-    // Inner class for stats response
-    static class CustomerStats {
-        public long totalCustomers;
-        public double totalSpent;
-        public Customer topCustomer;
-
-        public CustomerStats(long totalCustomers, double totalSpent, Customer topCustomer) {
-            this.totalCustomers = totalCustomers;
-            this.totalSpent = totalSpent;
-            this.topCustomer = topCustomer;
-        }
+        return ResponseEntity.ok(stats);
     }
 }

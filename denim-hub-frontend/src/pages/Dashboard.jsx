@@ -84,12 +84,17 @@ function Dashboard() {
   const calculateDashboardMetrics = (products, bills) => {
     // Basic calculations
     const totalProducts = products.length;
-    const totalStock = products.reduce((sum, p) => sum + (p.stockQty || 0), 0);
+     const totalStock = products.reduce((sum, p) => {
+    const productStock = p.sizes?.reduce((s, size) => s + (size.stockQty || 0), 0) || 0;
+    return sum + productStock;
+  }, 0);
     
     // Low stock items
-    const lowStock = products.filter(p => (p.stockQty || 0) <= (p.minStock || 10));
-    const lowStockCount = lowStock.length;
-    setLowStockProducts(lowStock.slice(0, 5));
+   const lowStock = products.filter(p => {
+    const totalProductStock = p.sizes?.reduce((s, size) => s + (size.stockQty || 0), 0) || 0;
+    return totalProductStock <= (p.minStock || 10);
+  });
+  const lowStockCount = lowStock.length;
     
     // Sales calculations
     const today = new Date();

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import Sidebar from "../components/Sidebar";
 import axios from "axios";
+import { useDarkMode } from "../context/DarkModeContext";
 import {
   FaFileInvoice,
   FaRupeeSign,
@@ -16,6 +17,7 @@ import {
 } from "react-icons/fa";
 
 function BillsReport() {
+    const { darkMode } = useDarkMode();
   const [bills, setBills] = useState([]);
   const [loading, setLoading] = useState(true);
   const [fromDate, setFromDate] = useState("");
@@ -319,10 +321,10 @@ function BillsReport() {
   };
 
   return (
-    <div className="d-flex vh-100 overflow-hidden">
+     <div className={`d-flex vh-100 overflow-hidden ${darkMode ? 'dark-mode' : ''}`}>
       <Sidebar />
 
-      <div className="flex-grow-1 p-4 overflow-auto">
+   <div className={`flex-grow-1 p-4 overflow-auto ${darkMode ? 'dark-mode' : ''}`}>
         <div className="d-flex justify-content-between align-items-center mb-4">
           <h3 className="mb-0">Bills Report</h3>
           

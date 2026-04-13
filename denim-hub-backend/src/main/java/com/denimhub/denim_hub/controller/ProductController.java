@@ -1,6 +1,7 @@
 package com.denimhub.denim_hub.controller;
 
 import com.denimhub.denim_hub.entity.Product;
+import com.denimhub.denim_hub.entity.ProductSize;
 import com.denimhub.denim_hub.service.ProductService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -10,9 +11,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @RestController
 @RequestMapping("/api/products")
@@ -26,174 +25,155 @@ public class ProductController {
         this.productService = productService;
     }
 
-    // ✅ Get All Products (only active ones)
     @GetMapping
     public ResponseEntity<List<Product>> getAllProducts() {
-        List<Product> products = productService.getAllProducts();
-        return ResponseEntity.ok(products);
+        return ResponseEntity.ok(productService.getAllProducts());
     }
 
-    // ✅ Get Product by ID
     @GetMapping("/{id}")
     public ResponseEntity<Product> getProductById(@PathVariable Long id) {
-        Product product = productService.getProductById(id);
-        return ResponseEntity.ok(product);
+        return ResponseEntity.ok(productService.getProductById(id));
     }
 
-    // ✅ Add Product With Image
+    @GetMapping("/check-name")
+    public ResponseEntity<Map<String, Boolean>> checkProductName(@RequestParam String name) {
+        boolean exists = productService.isProductNameExists(name);
+        Map<String, Boolean> response = new HashMap<>();
+        response.put("exists", exists);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/suggest")
+    public ResponseEntity<List<String>> suggestProductNames(@RequestParam String q) {
+        List<String> suggestions = productService.suggestProductNames(q);
+        return ResponseEntity.ok(suggestions);
+    }
+
     @PostMapping(value = "/with-image", consumes = "multipart/form-data")
-    public ResponseEntity<Product> addProductWithImage(
+    public ResponseEntity<?> addProductWithImage(
             @RequestParam("name") String name,
             @RequestParam("category") String category,
-            @RequestParam("size") String size,
-            @RequestParam("price") String price,
-            @RequestParam("stockQty") Integer stockQty,
-            @RequestParam(value = "minStock", required = false, defaultValue = "10") Integer minStock,
             @RequestParam("description") String description,
-            @RequestParam("image") MultipartFile image
+            @RequestParam("minStock") Integer minStock,
+            @RequestParam(value = "discountPercent", required = false, defaultValue = "0") BigDecimal discountPercent,
+            @RequestParam("image") MultipartFile image,
+            @RequestParam("sizes") String sizesJson
     ) {
         try {
-            // Create upload directory if it doesn't exist
-            File uploadDir = new File(UPLOAD_DIR);
-            if (!uploadDir.exists()) {
-                uploadDir.mkdirs();
+            if (productService.isProductNameExists(name)) {
+                Map<String, String> error = new HashMap<>();
+                error.put("error", "Product with name '" + name + "' already exists!");
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
             }
 
-            // Generate unique filename
+            File uploadDir = new File(UPLOAD_DIR);
+            if (!uploadDir.exists()) uploadDir.mkdirs();
+
             String fileName = System.currentTimeMillis() + "_" + image.getOriginalFilename();
-            String filePath = UPLOAD_DIR + fileName;
-
-            // Save file
-            image.transferTo(new File(filePath));
-
-            // Create image URL for frontend
+            image.transferTo(new File(UPLOAD_DIR + fileName));
             String imageUrl = "/uploads/products/" + fileName;
 
-            // Create product
+            List<ProductSize> sizes = parseSizes(sizesJson);
+
             Product product = Product.builder()
                     .name(name)
                     .category(category)
-                    .size(size)
-                    .price(new BigDecimal(price))
-                    .stockQty(stockQty)
-                    .minStock(minStock)
                     .description(description)
+                    .minStock(minStock)
+                    .discountPercent(discountPercent)
                     .imageUrl(imageUrl)
-                    .isActive(true) // Explicitly set active
+                    .isActive(true)
                     .build();
 
-            Product savedProduct = productService.addProduct(product);
+            Product savedProduct = productService.addProduct(product, sizes);
             return ResponseEntity.status(HttpStatus.CREATED).body(savedProduct);
 
         } catch (IOException e) {
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        } catch (RuntimeException e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", e.getMessage());
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
         }
     }
 
-    // ✅ Update Product
     @PutMapping(value = "/{id}", consumes = {"multipart/form-data"})
-    public ResponseEntity<Product> updateProduct(
+    public ResponseEntity<?> updateProduct(
             @PathVariable Long id,
             @RequestParam("name") String name,
             @RequestParam("category") String category,
-            @RequestParam("size") String size,
-            @RequestParam("price") String price,
-            @RequestParam("stockQty") Integer stockQty,
             @RequestParam("description") String description,
-            @RequestParam(value = "image", required = false) MultipartFile image
+            @RequestParam("minStock") Integer minStock,
+            @RequestParam(value = "discountPercent", required = false, defaultValue = "0") BigDecimal discountPercent,
+            @RequestParam(value = "image", required = false) MultipartFile image,
+            @RequestParam("sizes") String sizesJson
     ) {
         try {
-            Product existingProduct = productService.getProductById(id);
-
-            existingProduct.setName(name);
-            existingProduct.setCategory(category);
-            existingProduct.setSize(size);
-            existingProduct.setPrice(new BigDecimal(price));
-            existingProduct.setStockQty(stockQty);
-            existingProduct.setDescription(description);
-
-            // If new image is provided
-            if (image != null && !image.isEmpty()) {
-                // Delete old image file
-                if (existingProduct.getImageUrl() != null) {
-                    String oldImagePath = System.getProperty("user.dir") + existingProduct.getImageUrl();
-                    File oldFile = new File(oldImagePath);
-                    if (oldFile.exists()) {
-                        oldFile.delete();
-                    }
-                }
-
-                // Save new image
-                String fileName = System.currentTimeMillis() + "_" + image.getOriginalFilename();
-                String filePath = UPLOAD_DIR + fileName;
-                image.transferTo(new File(filePath));
-
-                String imageUrl = "/uploads/products/" + fileName;
-                existingProduct.setImageUrl(imageUrl);
+            if (productService.isProductNameExistsExcludingId(name, id)) {
+                Map<String, String> error = new HashMap<>();
+                error.put("error", "Product with name '" + name + "' already exists!");
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
             }
 
-            Product updatedProduct = productService.updateProduct(id, existingProduct);
+            Product existingProduct = productService.getProductById(id);
+            existingProduct.setName(name);
+            existingProduct.setCategory(category);
+            existingProduct.setDescription(description);
+            existingProduct.setMinStock(minStock);
+            existingProduct.setDiscountPercent(discountPercent);
+
+            if (image != null && !image.isEmpty()) {
+                if (existingProduct.getImageUrl() != null) {
+                    File oldFile = new File(System.getProperty("user.dir") + existingProduct.getImageUrl());
+                    if (oldFile.exists()) oldFile.delete();
+                }
+                String fileName = System.currentTimeMillis() + "_" + image.getOriginalFilename();
+                image.transferTo(new File(UPLOAD_DIR + fileName));
+                existingProduct.setImageUrl("/uploads/products/" + fileName);
+            }
+
+            List<ProductSize> sizes = parseSizes(sizesJson);
+            Product updatedProduct = productService.updateProduct(id, existingProduct, sizes);
             return ResponseEntity.ok(updatedProduct);
 
         } catch (IOException e) {
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        } catch (RuntimeException e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", e.getMessage());
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
         }
     }
 
-    // ✅ SOFT DELETE - Mark as inactive
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteProduct(@PathVariable Long id) {
         try {
-            System.out.println("Soft deleting product with ID: " + id);
-
-            Product product = productService.getProductById(id);
-            productService.deleteProduct(id); // This now does soft delete
-
+            productService.deleteProduct(id);
             Map<String, Object> response = new HashMap<>();
             response.put("message", "Product deactivated successfully");
             response.put("id", id);
-            response.put("status", "inactive");
-
             return ResponseEntity.ok(response);
-
         } catch (Exception e) {
-            System.err.println("Error deleting product: " + e.getMessage());
-            e.printStackTrace();
-
-            Map<String, String> error = new HashMap<>();
-            error.put("error", "Failed to delete product: " + e.getMessage());
-
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage()));
         }
     }
 
-    // ✅ Optional: HARD DELETE - Actually remove (use carefully)
-    @DeleteMapping("/{id}/hard")
-    public ResponseEntity<?> hardDeleteProduct(@PathVariable Long id) {
-        try {
-            System.out.println("Hard deleting product with ID: " + id);
+    private List<ProductSize> parseSizes(String sizesJson) throws com.fasterxml.jackson.core.JsonProcessingException {
+        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        List<Map<String, Object>> sizeMaps = mapper.readValue(sizesJson, List.class);
 
-            // First delete image if exists
-            Product product = productService.getProductById(id);
-            if (product.getImageUrl() != null) {
-                String imagePath = System.getProperty("user.dir") + product.getImageUrl();
-                File file = new File(imagePath);
-                if (file.exists()) {
-                    file.delete();
-                }
-            }
-
-            // Hard delete from database
-            productService.hardDeleteProduct(id);
-
-            return ResponseEntity.ok().body("Product permanently deleted");
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Error: " + e.getMessage());
+        List<ProductSize> sizes = new ArrayList<>();
+        for (Map<String, Object> sizeMap : sizeMaps) {
+            ProductSize size = ProductSize.builder()
+                    .size((String) sizeMap.get("size"))
+                    .stockQty(Integer.parseInt(sizeMap.get("stockQty").toString()))
+                    .price(new BigDecimal(sizeMap.get("price").toString()))
+                    .build();
+            sizes.add(size);
         }
+        return sizes;
     }
 }

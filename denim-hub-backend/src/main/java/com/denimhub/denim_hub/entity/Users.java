@@ -1,18 +1,15 @@
 package com.denimhub.denim_hub.entity;
 
-
-
 import jakarta.persistence.*;
 import lombok.*;
-
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "users")
-@Data              
+@Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder             
+@Builder
 public class Users {
 
     @Id

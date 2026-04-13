@@ -35,14 +35,19 @@ function ViewProduct() {
     return "http://localhost:8080/uploads/products/default.jpg";
   };
 
+  const getTotalStock = () => {
+    if (product?.sizes) {
+      return product.sizes.reduce((sum, s) => sum + (s.stockQty || 0), 0);
+    }
+    return 0;
+  };
+
   if (loading) {
     return (
       <div className="d-flex vh-100">
         <Sidebar />
         <div className="flex-grow-1 d-flex justify-content-center align-items-center">
-          <div className="spinner-border text-primary" role="status">
-            <span className="visually-hidden">Loading...</span>
-          </div>
+          <div className="spinner-border text-primary" role="status" />
         </div>
       </div>
     );
@@ -54,9 +59,7 @@ function ViewProduct() {
         <Sidebar />
         <div className="flex-grow-1 p-4">
           <div className="alert alert-danger">{error || "Product not found"}</div>
-          <button className="btn btn-primary" onClick={() => navigate("/products")}>
-            Back to Products
-          </button>
+          <button className="btn btn-primary" onClick={() => navigate("/products")}>Back to Products</button>
         </div>
       </div>
     );
@@ -65,63 +68,66 @@ function ViewProduct() {
   return (
     <div className="d-flex vh-100">
       <Sidebar />
-      <div className="flex-grow-1 overflow-auto p-4">
+      <div className="flex-grow-1 overflow-auto p-4" style={{ background: "#F8F9FA" }}>
         <div className="d-flex justify-content-between align-items-center mb-4">
           <h3>Product Details</h3>
-          <button className="btn btn-secondary" onClick={() => navigate("/products")}>
-            Back to Products
-          </button>
+          <button className="btn btn-secondary" onClick={() => navigate("/products")}>← Back to Products</button>
         </div>
 
-        <div className="card shadow-sm">
+        <div className="card shadow-sm border-0">
           <div className="card-body">
             <div className="row">
-              <div className="col-md-4 text-center mb-3">
-                <img
-                  src={getImageUrl()}
-                  alt={product.name}
-                  className="img-fluid rounded"
+              <div className="col-md-4 text-center">
+                <img src={getImageUrl()} alt={product.name} className="img-fluid rounded shadow-sm"
                   style={{ maxHeight: "300px", objectFit: "contain" }}
-                  onError={(e) => {
-                    e.target.onerror = null;
-                    e.target.src = "http://localhost:8080/uploads/products/default.jpg";
-                  }}
-                />
+                  onError={(e) => e.target.src = "http://localhost:8080/uploads/products/default.jpg"} />
               </div>
               <div className="col-md-8">
-                <h4 className="mb-3">{product.name}</h4>
-                <table className="table">
+                <h3 className="mb-2">{product.name}</h3>
+                <p className="text-muted">Category: {product.category}</p>
+                
+                {product.discountPercent > 0 && (
+                  <div className="alert alert-warning d-inline-block mb-3">
+                    🔥 {product.discountPercent}% OFF on all sizes!
+                  </div>
+                )}
+
+                <table className="table table-bordered">
                   <tbody>
-                    <tr>
-                      <th style={{ width: "150px" }}>ID:</th>
-                      <td>{product.id}</td>
-                    </tr>
-                    <tr>
-                      <th>Category:</th>
-                      <td>{product.category}</td>
-                    </tr>
-                    <tr>
-                      <th>Size:</th>
-                      <td>{product.size || "-"}</td>
-                    </tr>
-                    <tr>
-                      <th>Price:</th>
-                      <td>₹{product.price}</td>
-                    </tr>
-                    <tr>
-                      <th>Stock:</th>
-                      <td>
-                        <span className={`fw-bold ${product.stockQty <= 5 ? "text-danger" : "text-success"}`}>
-                          {product.stockQty}
-                        </span>
-                      </td>
-                    </tr>
-                    <tr>
-                      <th>Description:</th>
-                      <td>{product.description || "No description available"}</td>
-                    </tr>
+                    <tr><th style={{ width: "150px" }}>ID:</th><td>{product.id}</td></tr>
+                    <tr><th>Category:</th><td>{product.category}</td></tr>
+                    <tr><th>Total Stock:</th><td><span className="fw-bold">{getTotalStock()} units</span></td></tr>
+                    <tr><th>Min Stock Alert:</th><td>{product.minStock || 10} units</td></tr>
                   </tbody>
                 </table>
+
+                <h5 className="mt-3">Sizes & Pricing</h5>
+                <div className="table-responsive">
+                  <table className="table table-bordered">
+                    <thead className="table-light">
+                      <tr><th>Size</th><th>Stock</th><th>Original Price</th><th>Discounted Price</th></tr>
+                    </thead>
+                    <tbody>
+                      {product.sizes?.map(size => {
+                        const discountedPrice = size.price * (100 - (product.discountPercent || 0)) / 100;
+                        return (
+                          <tr key={size.size}>
+                            <td><strong>{size.size}</strong></td>
+                            <td>{size.stockQty}</td>
+                            <td className="text-muted"><del>₹{size.price}</del></td>
+                            <td className="text-success fw-bold">
+                              ₹{discountedPrice.toFixed(2)}
+                              {product.discountPercent > 0 && <small className="text-danger ms-2">(-{product.discountPercent}%)</small>}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                <h5 className="mt-3">Description</h5>
+                <p className="text-muted">{product.description || "No description available"}</p>
               </div>
             </div>
           </div>

@@ -1,6 +1,5 @@
 package com.denimhub.denim_hub.entity;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.*;
@@ -23,7 +22,7 @@ public class Sale {
     @Column(unique = true)
     private String saleNo;
 
-    @ManyToOne(fetch = FetchType.EAGER)  // Change to EAGER to load customer automatically
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "customer_id", nullable = false)
     private Customer customer;
 
@@ -50,6 +49,12 @@ public class Sale {
 
     @Column(name = "payment_status")
     private String paymentStatus = "Paid";
+
+    @Column(name = "coupon_code")
+    private String couponCode;
+
+    @Column(name = "coupon_discount")
+    private BigDecimal couponDiscount;
 
     @OneToMany(mappedBy = "sale", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonManagedReference

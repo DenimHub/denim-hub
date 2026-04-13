@@ -1,6 +1,7 @@
 package com.denimhub.denim_hub.controller;
 
 import com.denimhub.denim_hub.entity.Product;
+import com.denimhub.denim_hub.entity.ProductSize;
 import com.denimhub.denim_hub.service.ProductService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -21,108 +22,44 @@ public class InventoryController {
         this.productService = productService;
     }
 
-    // Get all inventory items
     @GetMapping
     public ResponseEntity<List<Product>> getInventory() {
-        try {
-            System.out.println("Fetching all products for inventory...");
-            List<Product> products = productService.getAllProducts();
-            System.out.println("Found " + products.size() + " products");
-
-            // Log first product to see data
-            if (!products.isEmpty()) {
-                Product first = products.get(0);
-                System.out.println("Sample product - Name: " + first.getName() +
-                        ", Stock: " + first.getStockQty() +
-                        ", MinStock: " + first.getMinStock());
-            }
-
-            return ResponseEntity.ok(products);
-        } catch (Exception e) {
-            System.err.println("Error fetching inventory: " + e.getMessage());
-            e.printStackTrace();
-            return ResponseEntity.internalServerError().build();
-        }
+        return ResponseEntity.ok(productService.getAllProducts());
     }
 
-    // Get inventory summary
     @GetMapping("/summary")
     public ResponseEntity<Map<String, Object>> getInventorySummary() {
-        try {
-            List<Product> products = productService.getAllProducts();
+        List<Product> products = productService.getAllProducts();
 
-            int totalStock = products.stream()
-                    .mapToInt(p -> p.getStockQty() != null ? p.getStockQty() : 0)
-                    .sum();
+        int totalStock = products.stream()
+                .mapToInt(p -> p.getSizes().stream().mapToInt(ProductSize::getStockQty).sum())
+                .sum();
 
-            int lowStockCount = (int) products.stream()
-                    .filter(p -> {
-                        Integer stock = p.getStockQty() != null ? p.getStockQty() : 0;
-                        Integer minStock = p.getMinStock() != null ? p.getMinStock() : 10;
-                        return stock <= minStock;
-                    })
-                    .count();
+        int lowStockCount = (int) products.stream()
+                .filter(p -> {
+                    int total = p.getSizes().stream().mapToInt(ProductSize::getStockQty).sum();
+                    return total <= (p.getMinStock() != null ? p.getMinStock() : 10);
+                })
+                .count();
 
-            Map<String, Object> summary = new HashMap<>();
-            summary.put("totalStock", totalStock);
-            summary.put("lowStockCount", lowStockCount);
-            summary.put("totalProducts", products.size());
-            summary.put("avgStock", products.size() > 0 ? totalStock / products.size() : 0);
-
-            return ResponseEntity.ok(summary);
-
-        } catch (Exception e) {
-            System.err.println("Error fetching summary: " + e.getMessage());
-            e.printStackTrace();
-            return ResponseEntity.internalServerError().build();
-        }
+        Map<String, Object> summary = new HashMap<>();
+        summary.put("totalStock", totalStock);
+        summary.put("lowStockCount", lowStockCount);
+        summary.put("totalProducts", products.size());
+        return ResponseEntity.ok(summary);
     }
 
-    // Update min stock
     @PutMapping("/{id}/min-stock")
-    public ResponseEntity<Product> updateMinStock(
-            @PathVariable Long id,
-            @RequestBody Map<String, Integer> request
-    ) {
-        try {
-            Integer minStock = request.get("minStock");
-            if (minStock == null) {
-                minStock = 10; // Default value
-            }
-
-            Product product = productService.getProductById(id);
-            product.setMinStock(minStock);
-            Product updatedProduct = productService.updateProduct(id, product);
-
-            return ResponseEntity.ok(updatedProduct);
-
-        } catch (Exception e) {
-            System.err.println("Error updating min stock: " + e.getMessage());
-            return ResponseEntity.internalServerError().build();
-        }
+    public ResponseEntity<Product> updateMinStock(@PathVariable Long id, @RequestBody Map<String, Integer> request) {
+        Product product = productService.updateMinStockOnly(id, request.get("minStock"));
+        return ResponseEntity.ok(product);
     }
 
-    // Update stock
     @PutMapping("/{id}/stock")
-    public ResponseEntity<Product> updateStock(
-            @PathVariable Long id,
-            @RequestBody Map<String, Integer> request
-    ) {
-        try {
-            Integer stockQty = request.get("stockQty");
-            if (stockQty == null) {
-                return ResponseEntity.badRequest().build();
-            }
-
-            Product product = productService.getProductById(id);
-            product.setStockQty(stockQty);
-            Product updatedProduct = productService.updateProduct(id, product);
-
-            return ResponseEntity.ok(updatedProduct);
-
-        } catch (Exception e) {
-            System.err.println("Error updating stock: " + e.getMessage());
-            return ResponseEntity.internalServerError().build();
-        }
+    public ResponseEntity<Product> updateStock(@PathVariable Long id, @RequestBody Map<String, Object> request) {
+        String size = (String) request.get("size");
+        Integer stockQty = (Integer) request.get("stockQty");
+        Product product = productService.updateSizeStock(id, size, stockQty);
+        return ResponseEntity.ok(product);
     }
 }

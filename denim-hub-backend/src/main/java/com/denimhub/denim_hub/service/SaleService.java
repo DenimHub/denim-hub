@@ -18,18 +18,20 @@ public class SaleService {
 
     private final CustomerRepository customerRepo;
     private final ProductRepository productRepo;
-    private final SaleRepository saleRepo;  // This was missing!
+    private final SaleRepository saleRepo;
     private final SaleItemRepository saleItemRepo;
+    private final ProductSizeRepository productSizeRepo;
+    private final CouponRepository couponRepository;
 
     @Transactional
     public Sale createSale(SaleRequestDTO dto) {
 
-        // CUSTOMER CHECK
+        // Find or create customer
         Customer customer = customerRepo.findByMobile(dto.getMobile())
                 .orElseGet(() -> Customer.builder()
                         .name(dto.getName())
                         .mobile(dto.getMobile())
-                        .email(dto.getEmail())
+                        .email(dto.getEmail() != null ? dto.getEmail() : "")
                         .totalOrders(0)
                         .totalSpent(BigDecimal.ZERO)
                         .build());
@@ -44,6 +46,21 @@ public class SaleService {
         sale.setPaymentMethod(dto.getPaymentMethod());
         sale.setDiscountPercent(dto.getDiscountPercent());
 
+        // Apply coupon if provided
+        BigDecimal couponDiscountAmount = BigDecimal.ZERO;
+        if (dto.getCouponCode() != null && !dto.getCouponCode().isEmpty()) {
+            Coupon coupon = couponRepository.findByCode(dto.getCouponCode().toUpperCase()).orElse(null);
+            if (coupon != null && coupon.isValid()) {
+                coupon.setUsedCount(coupon.getUsedCount() + 1);
+                couponRepository.save(coupon);
+                sale.setCouponCode(coupon.getCode());
+                couponDiscountAmount = dto.getSubtotalBeforeDiscount()
+                        .multiply(coupon.getDiscountPercent())
+                        .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+                sale.setCouponDiscount(couponDiscountAmount);
+            }
+        }
+
         List<SaleItem> items = new ArrayList<>();
         BigDecimal subtotal = BigDecimal.ZERO;
         int totalItems = 0;
@@ -51,29 +68,45 @@ public class SaleService {
         for (SaleItemDTO itemDTO : dto.getItems()) {
 
             Product product = productRepo.findById(itemDTO.getProductId())
-                    .orElseThrow(() -> new RuntimeException("Product not found with id: " + itemDTO.getProductId()));
+                    .orElseThrow(() -> new RuntimeException("Product not found"));
 
-            // Check stock
-            if (product.getStockQty() < itemDTO.getQuantity()) {
-                throw new RuntimeException("Not enough stock for product: " + product.getName() +
-                        ". Available: " + product.getStockQty() + ", Requested: " + itemDTO.getQuantity());
+            List<ProductSize> sizes = product.getSizes();
+            ProductSize selectedSize = sizes.stream()
+                    .filter(s -> s.getSize().equals(itemDTO.getSize()))
+                    .findFirst()
+                    .orElseThrow(() -> new RuntimeException("Size not found"));
+
+            if (selectedSize.getStockQty() < itemDTO.getQuantity()) {
+                throw new RuntimeException("Not enough stock");
             }
 
-            // Update stock
-            product.setStockQty(product.getStockQty() - itemDTO.getQuantity());
-            productRepo.save(product);
+            selectedSize.setStockQty(selectedSize.getStockQty() - itemDTO.getQuantity());
+            productSizeRepo.save(selectedSize);
 
-            // Calculate item total
-            BigDecimal itemTotal = product.getPrice()
-                    .multiply(BigDecimal.valueOf(itemDTO.getQuantity()))
-                    .setScale(2, RoundingMode.HALF_UP);
+            // Calculate price with product discount
+            BigDecimal originalPrice = selectedSize.getPrice();
+            BigDecimal finalPrice = originalPrice;
+            BigDecimal productDiscountPercent = BigDecimal.ZERO;
 
-            // Create sale item
+            if (product.getDiscountPercent() != null &&
+                    product.getDiscountPercent().compareTo(BigDecimal.valueOf(50)) <= 0 &&
+                    product.getDiscountPercent().compareTo(BigDecimal.ZERO) > 0) {
+                productDiscountPercent = product.getDiscountPercent();
+                finalPrice = originalPrice
+                        .multiply(BigDecimal.valueOf(100).subtract(productDiscountPercent))
+                        .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+            }
+
+            BigDecimal itemTotal = finalPrice.multiply(BigDecimal.valueOf(itemDTO.getQuantity()));
+
             SaleItem saleItem = SaleItem.builder()
                     .sale(sale)
                     .product(product)
+                    .size(itemDTO.getSize())
                     .quantity(itemDTO.getQuantity())
-                    .price(product.getPrice())
+                    .price(finalPrice)
+                    .originalPrice(originalPrice)
+                    .productDiscountPercent(productDiscountPercent)
                     .total(itemTotal)
                     .build();
 
@@ -82,24 +115,20 @@ public class SaleService {
             items.add(saleItem);
         }
 
-        // Calculate discount
+        // Calculate discounts
         BigDecimal discountPercent = dto.getDiscountPercent() != null ? dto.getDiscountPercent() : BigDecimal.ZERO;
-        BigDecimal discountAmount = subtotal
-                .multiply(discountPercent)
+        BigDecimal discountAmount = subtotal.multiply(discountPercent)
                 .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
 
-        BigDecimal finalAmount = subtotal.subtract(discountAmount);
+        BigDecimal finalAmount = subtotal.subtract(discountAmount).subtract(couponDiscountAmount);
 
-        // Set sale properties
         sale.setSubtotal(subtotal);
         sale.setDiscountAmount(discountAmount);
         sale.setTotalAmount(finalAmount);
         sale.setTotalItems(totalItems);
 
-        // Save sale first
         Sale savedSale = saleRepo.save(sale);
 
-        // Associate items with sale and save them
         for (SaleItem item : items) {
             item.setSale(savedSale);
             saleItemRepo.save(item);
@@ -107,7 +136,6 @@ public class SaleService {
 
         savedSale.setItems(items);
 
-        // Update customer total spent
         customer.setTotalSpent(customer.getTotalSpent().add(finalAmount));
         customerRepo.save(customer);
 
@@ -116,24 +144,6 @@ public class SaleService {
 
     public Sale getSaleById(Long id) {
         return saleRepo.findById(id)
-                .orElseThrow(() -> new RuntimeException("Sale not found with id: " + id));
-    }
-
-    public List<Sale> getAllSales() {
-        return saleRepo.findAllByOrderByBillDateDesc();
-    }
-
-    @Transactional
-    public void deleteSale(Long id) {
-        Sale sale = getSaleById(id);
-
-        // Restore product stock
-        for (SaleItem item : sale.getItems()) {
-            Product product = item.getProduct();
-            product.setStockQty(product.getStockQty() + item.getQuantity());
-            productRepo.save(product);
-        }
-
-        saleRepo.delete(sale);
+                .orElseThrow(() -> new RuntimeException("Sale not found"));
     }
 }

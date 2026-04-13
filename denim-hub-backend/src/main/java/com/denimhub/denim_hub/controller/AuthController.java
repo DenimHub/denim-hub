@@ -19,41 +19,22 @@ public class AuthController {
         this.userService = userService;
     }
 
-    // LOGIN API
     @PostMapping("/login")
     public LoginResponse login(@RequestBody LoginRequest request) {
-
-        boolean success = userService.login(
-                request.getUsername(),
-                request.getPassword()
-        );
-
+        boolean success = userService.login(request.getUsername(), request.getPassword());
         if (success) {
             Users user = userService.findByUsername(request.getUsername());
-
-            return new LoginResponse(
-                    "Login successful",
-                    user.getRole()
-            );
+            return new LoginResponse("Login successful", user.getRole());
         } else {
-            return new LoginResponse(
-                    "Invalid credentials",
-                    null
-            );
+            return new LoginResponse("Invalid credentials", null);
         }
     }
-    // CHANGE PASSWORD API
+
     @PostMapping("/change-password")
     public ResponseEntity<?> changePassword(@RequestBody ChangePasswordRequest request) {
         try {
-            userService.changePassword(
-                    request.getUsername(),
-                    request.getOldPassword(),
-                    request.getNewPassword()
-            );
-
+            userService.changePassword(request.getUsername(), request.getOldPassword(), request.getNewPassword());
             return ResponseEntity.ok("Password changed successfully");
-
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }

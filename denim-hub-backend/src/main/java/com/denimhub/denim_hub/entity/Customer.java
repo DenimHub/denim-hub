@@ -36,7 +36,6 @@ public class Customer {
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
-    // Add @JsonIgnore to break the circular reference
     @OneToMany(mappedBy = "customer")
     @JsonIgnore
     private List<Sale> sales;

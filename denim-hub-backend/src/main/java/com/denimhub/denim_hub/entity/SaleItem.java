@@ -1,7 +1,6 @@
 package com.denimhub.denim_hub.entity;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
@@ -28,6 +27,9 @@ public class SaleItem {
     private Product product;
 
     @Column(nullable = false)
+    private String size;
+
+    @Column(nullable = false)
     private Integer quantity;
 
     @Column(nullable = false, precision = 10, scale = 2)
@@ -35,4 +37,12 @@ public class SaleItem {
 
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal total;
+
+    // Add this field - product discount percentage at time of sale
+    @Column(name = "product_discount_percent")
+    private BigDecimal productDiscountPercent;
+
+    // Add this field - original price before discount
+    @Column(name = "original_price", precision = 10, scale = 2)
+    private BigDecimal originalPrice;
 }
