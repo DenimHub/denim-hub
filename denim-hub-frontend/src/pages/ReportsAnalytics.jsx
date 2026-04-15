@@ -391,7 +391,13 @@ function ReportsAnalytics() {
                     <BarChart data={salesData}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="period" />
-                      <YAxis />
+                      <YAxis
+                        domain={[
+                          0,
+                          (dataMax) => Math.ceil(dataMax / 5000) * 5000
+                        ]}
+                        tickFormatter={(value) => `₹${value}`}
+                      />
                       <Tooltip formatter={(value) => [`₹${value}`, 'Sales']} />
                       <Bar dataKey="sales" fill="#13338f" radius={[8, 8, 0, 0]} />
                     </BarChart>
